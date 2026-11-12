@@ -1,0 +1,1 @@
+{ "place": "none", "title": "Bar", "overlay": { "kind": "popup", "at": "top", "offset": 40, "width": 980, "height": 0.9 } }

@@ -1,0 +1,10 @@
+{
+  "name": "herdr-bar-mod",
+  "private": true,
+  "type": "module",
+  "description": "A Herdr app mod: a quick switcher for agents, tabs, panes and spaces on every machine",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}
