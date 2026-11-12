@@ -192,10 +192,10 @@ export default class Bar extends View {
 
   // The title, with the characters the search matched in the accent color.
   title(t, f, on) {
-    const base = on || f.row.current ? t.foreground : t.muted;
-    const el = h_flex().min_w(0).flex_shrink(1).overflow_hidden().whitespace_nowrap().text_size(13.5).text_color(on ? t.foreground : base).when(f.row.current, (el) => el.font_semibold());
+    const color = on || f.row.current ? t.foreground : t.muted;
+    const el = h_flex().min_w(0).flex_shrink(1).overflow_hidden().whitespace_nowrap().text_size(13.5).text_color(color).when(f.row.current, (el) => el.font_semibold());
     if (!f.positions.length) return el.child(div().truncate().child(f.row.title));
-    return el.children(segments(f.row.title, f.positions).map((s) => div().flex_none().when(s.hit, (d) => d.text_color(t.accent).font_semibold()).child(s.text.replace(/ /g, " "))));
+    return el.children(segments(f.row.title, f.positions).map((s) => div().flex_none().when(s.hit, (d) => d.text_color(t.accent).font_semibold()).child(s.text.replace(/ /g, "\u00a0"))));
   }
 
   meta(t, r) {
@@ -217,6 +217,7 @@ export default class Bar extends View {
     const armed = this.armed === r.key;
     const kind = r.kind === "agent" ? (r.sub ? "sub-agent" : null) : r.kind;
     const age = r.kind === "agent" && r.status === "working" && r.changed ? now - r.changed : r.created ? now - r.created : null;
+    const mark = this.status(t, r);
     return h_flex()
       .id(`bar-${r.key}`)
       .absolute()
@@ -250,7 +251,7 @@ export default class Bar extends View {
           .when(armed, (el) => el.child(div().flex_none().px(7).h(19).rounded(6).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child(`ctrl-d again to ${this.shutWord(r)}`)))
           .when(!armed, (el) => el
             .when(age !== null, (e) => e.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(age))))
-            .when(Boolean(this.status(t, r)), (e) => e.child(h_flex().flex_none().min_w(17).justify_center().child(this.status(t, r))))),
+            .when(Boolean(mark), (e) => e.child(h_flex().flex_none().min_w(17).justify_center().child(mark)))),
       )
       .on_click(() => this.go(r));
   }
@@ -320,7 +321,7 @@ export default class Bar extends View {
         .font_family(settings().font_family ?? "JetBrains Mono")
         .text_size(11)
         .text_color(t.muted)
-        .children(p.lines.slice(-fit).map((l) => div().h(PREVIEW_LINE).flex_none().whitespace_nowrap().overflow_hidden().child(l.replace(/ /g, " ") || " "))),
+        .children(p.lines.slice(-fit).map((l) => div().h(PREVIEW_LINE).flex_none().whitespace_nowrap().overflow_hidden().child(l.replace(/ /g, "\u00a0") || "\u00a0"))),
     );
   }
 

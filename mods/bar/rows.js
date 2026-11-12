@@ -95,7 +95,8 @@ export function build({ agents = [], panes = [], spaces = [], terminals = [] } =
     const space = spaceOfTab.get(a.tab);
     const pane = paneOf.get(a.address);
     const term = termOf.get(a.address);
-    const live = telling(a.title, a.program, a.address);
+    // The terminal's title, else the title the agent reports with its status.
+    const live = telling(a.title, a.program, a.address) || telling(term?.report?.title, a.program, a.address);
     const alone = (agentsIn.get(a.tab) ?? []).length === 1;
     const named = tab?.named && alone;
     rows.push({
@@ -273,6 +274,10 @@ export function inView(rows, view, searching = false) {
   return rows.filter((r) => r.kind === "agent" || (r.kind === "tab" && r.plain) || (searching && r.kind === "space"));
 }
 
+// A match must average this much per character. Letters scattered through the middle of words
+// (the "z", "s" and "h" of a long folder path) score less and don't count as a match.
+const ENOUGH = 22;
+
 // What a term may match in a row, and how much a match there counts next to one in the title.
 const FIELDS = [
   ["title", 1],
@@ -290,7 +295,8 @@ const FIELDS = [
  * The rows that match every word of `query`, each as { row, score, positions }: `positions`
  * are the matched characters of the title, for highlighting. A word may match the title, the
  * detail, the space, the branch, the program, the machine, the folder, the status word or the
- * terminal address. An empty query matches everything with score 0.
+ * terminal address, as letters in order that mostly sit together or start words. An empty
+ * query matches everything with score 0.
  */
 export function search(rows, query) {
   const terms = query.trim().split(/\s+/).filter(Boolean);
@@ -305,7 +311,7 @@ export function search(rows, query) {
       let top = null;
       for (const [field, weight] of FIELDS) {
         const found = match(term, texts[field] ?? "");
-        if (found && (!top || found.score * weight > top.score)) top = { score: found.score * weight, field, positions: found.positions };
+        if (found && found.score >= term.length * ENOUGH && (!top || found.score * weight > top.score)) top = { score: found.score * weight, field, positions: found.positions };
       }
       if (!top) {
         all = false;
@@ -313,7 +319,8 @@ export function search(rows, query) {
       }
       score += top.score;
       // The title lights up wherever the term is in it, even when another field scored higher.
-      for (const p of (top.field === "title" ? top : match(term, row.title))?.positions ?? []) positions.add(p);
+      const lit = top.field === "title" ? top : match(term, row.title);
+      if (lit && lit.score >= term.length * ENOUGH) for (const p of lit.positions) positions.add(p);
     }
     if (all) out.push({ row, score, positions: [...positions].sort((a, b) => a - b) });
   }

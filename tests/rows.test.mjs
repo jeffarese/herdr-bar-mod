@@ -137,6 +137,29 @@ test("search matches the branch, machine, folder, program and status word too", 
   assert.deepEqual(keys(search(rows, "needs")), ["a:studio/t7"]);
 });
 
+test("letters scattered through a long folder path are not a match", () => {
+  const w = world();
+  w.panes[0].cwd = "/private/tmp/stage.ZwTMYI/home/code/shop";
+  assert.deepEqual(keys(search(inView(build(w), "all"), "zsh")), ["t:tb2"]);
+});
+
+test("one letter matches where a word starts with it, not inside words", () => {
+  const rows = inView(build(world()), "all");
+  assert.deepEqual(keys(search(rows, "l")), ["a:t1"]);
+  assert.deepEqual(keys(search(rows, "x")), []);
+});
+
+test("initials of the words in a title are a match", () => {
+  assert.deepEqual(keys(search(inView(build(world()), "all"), "ftl")), ["a:t1"]);
+});
+
+test("an agent with no telling terminal title goes by the title it reports", () => {
+  const w = world();
+  w.agents[0].title = "claude";
+  w.terminals[0].report = { title: "Speed up the checkout page" };
+  assert.equal(byKey(build(w), "a:t1").title, "Speed up the checkout page");
+});
+
 test("every word of the query must match, in any field", () => {
   const rows = inView(build(world()), "all");
   assert.deepEqual(keys(search(rows, "claude studio")), ["a:studio/t7"]);

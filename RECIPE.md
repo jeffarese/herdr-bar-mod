@@ -57,7 +57,8 @@ draws the frame. Inside, 14 px padding, 10 px between regions, on `popover`, top
   pane row for every terminal pane, a space row for every space.
 - **Titles.** An agent alone in a tab somebody named goes by the tab's name. Otherwise it goes
   by its terminal title with the leading status glyph removed, unless that title only repeats
-  the program, a path, a `user@host` or the terminal's address; then by its program's name.
+  the program, a path, a `user@host` or the terminal's address; then by the title it reports
+  with its status; then by its program's name.
 - **Lists.** All: agents, and tabs with no agent in them; once the person types, spaces too.
   Needs you, Working, Done, Idle: agents in that status. Tabs: every tab. Panes: every
   terminal pane. Spaces: every space. The list last used is kept and opens again next time.
@@ -69,7 +70,10 @@ draws the frame. Inside, 14 px padding, 10 px between regions, on `popover`, top
   they type). It stays on the same row while the list changes under it.
 - **Search.** Words separated by spaces; each must match, as letters in order, in the title,
   the second-line detail, the space, the branch, the program, the machine, the folder, the
-  status word or the terminal address. Lowercase ignores case; a capital asks for it.
+  status word or the terminal address. Lowercase ignores case; a capital asks for it. The
+  letters must sit together or start words: a match that averages under 22 points a letter
+  (16 for a letter, 12 more at a word start, 14 more next to the previous one, less for gaps)
+  is not one, so the scattered letters of a long folder path don't count.
 - **Keys.** Up, Down, Ctrl+P, Ctrl+N, Ctrl+K, Ctrl+J move, wrapping. Page Up and Page Down
   move by nine. Enter goes. Tab and Shift+Tab switch lists. Ctrl+D arms a close: the row shows
   "ctrl-d again to close tab" in the blocked pill, and a second Ctrl+D does it; moving the

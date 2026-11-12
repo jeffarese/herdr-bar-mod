@@ -7,7 +7,7 @@ const CAMEL = 10; // at a capital inside a word ("L" in "fixLogin")
 const START = 8; // at the very start of the text, on top of BOUNDARY
 const RUN = 14; // right after the previous matched character
 const GAP = 2; // per skipped character between two matches
-const GAP_MAX = 10; // a long gap costs no more than this
+const GAP_MAX = 20; // a long gap costs no more than this
 const LEAD = 1; // per character before the first match
 const LEAD_MAX = 6;
 
