@@ -14,5 +14,6 @@ jobs:
         with:
           node-version: 22
       - run: npm test
-      - run: sh -n install.sh
+      - run: for f in install.sh docs/demo/*.sh; do sh -n "$f"; done
+      - run: python3 -m py_compile docs/demo/bin/agent
       - run: node -e "for (const f of ['keys.json', 'mods/bar/mod.json']) JSON.parse(require('fs').readFileSync(f, 'utf8'))"

@@ -10,6 +10,11 @@ It is the desktop-app counterpart of [herdr-bar](https://github.com/jeffarese/he
 Cmd+K command bar for the Herdr TUI. The two share no code: the app has its own extension
 system, and this is written for it.
 
+[![The Herdr window. A key drops a panel from the top that lists nine agents and tabs with their status: one needs you, one is done, four are working. The selection moves down the list and the right side shows each terminal's screen. Typing "studio" leaves the agents on that machine. Tab switches between the Needs you, Working and Done lists. Typing "login" leaves one agent with those letters highlighted, and Enter shows it.](docs/media/demo.gif)](docs/media/demo.mp4)
+
+The film is the real mod in the real app, with real key presses, on a
+[synthetic stage](docs/demo/README.md). Click it for the 60 frames a second version.
+
 This is an unofficial mod. It is not affiliated with Herdr.
 
 ## What it does
@@ -21,8 +26,8 @@ This is an unofficial mod. It is not affiliated with Herdr.
 - **Filters.** Chips for All, Needs you, Working, Done, Idle, Tabs, Panes and Spaces, with a
   live count on each status. Tab and Shift+Tab move between them.
 - **Fuzzy search** over the title, tab, space, branch, program, machine, folder, status and
-  terminal address. Every word must match somewhere; the matched letters of the title are
-  highlighted.
+  terminal address. Every word must match somewhere, as letters in order that sit together or
+  start words (`ftl` finds "Fix the login"); the matched letters of the title are highlighted.
 - **Other machines.** Agents and tabs on machines connected through herdr-core are listed with
   the machine's name, and typing the name finds them.
 - **Preview.** The right side shows the selected terminal's screen, read again every second
@@ -89,6 +94,7 @@ which the shipped mods keep, and never writes it.
 npm test                      # the row and search logic, with node --test
 herdr-app check mods/bar      # loads the mod and renders it once
 ./install.sh                  # copies it into the running app, which reloads it
+sh docs/demo/record.sh        # films the demo again, on a synthetic stage
 ```
 
 `mods/bar/rows.js` and `mods/bar/fuzzy.js` hold the logic and import nothing from the app, so
