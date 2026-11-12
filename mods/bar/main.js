@@ -291,7 +291,7 @@ export default class Bar extends View {
     const frame = v_flex().flex_1().min_w(0).h(height).rounded(10).border(1).border_color(t.border).bg(t.background).overflow_hidden();
     if (!r) return frame;
     const where = [r.space, r.branch, shortPath(r.cwd, r.machine ? null : home())].filter(Boolean).join("  ·  ");
-    const head = v_flex().flex_none().px(12).py(9).gap(3).border_b(1).border_color(t.border).bg(t.surface)
+    const head = v_flex().flex_none().px(12).py(9).gap(3).border_b(1).border_color(t.border).bg(t.surface).rounded_tl(9).rounded_tr(9)
       .child(
         h_flex().gap(8).items_center()
           .child(this.icon(t, r, 18))
