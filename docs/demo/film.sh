@@ -47,7 +47,9 @@ if not ax.AXIsProcessTrusted():
 
 # Virtual key codes of a US keyboard.
 CODES = dict(zip("asdfhgzxcv", range(10)), b=11, q=12, w=13, e=14, r=15, y=16, t=17, o=31, u=32, i=34, p=35, l=37,
-             j=38, k=40, n=45, m=46, enter=36, tab=48, delete=51, escape=53, down=125, up=126)
+             j=38, k=40, n=45, m=46, enter=36, tab=48, delete=51, escape=53, down=125, up=126, left=123)
+CODES.update({".": 47, ";": 41})
+SHIFTED = {":": ";"}
 FLAGS = {"shift": 1 << 17, "ctrl": 1 << 18, "cmd": 1 << 20}
 
 
@@ -64,7 +66,10 @@ def key(name, *modifiers, rest=0.12):
 
 def type_(text, rest=0.085):
     for c in text:
-        key(c, rest=rest)
+        if c in SHIFTED:
+            key(SHIFTED[c], "shift", rest=rest)
+        else:
+            key(c, rest=rest)
 
 
 def erase(n):
@@ -103,10 +108,11 @@ if "bar" not in status["overlays"]:
 opened_at = time.monotonic()
 for _ in range(4):  # down the list: the preview follows
     key("down", rest=0.8)
-time.sleep(0.5)
-type_("studio")  # another machine's agents
+key(".", "cmd", rest=1.6)  # what can be done to the row
+key("left", rest=0.6)
+type_("on:studio")  # a filter: another machine's agents
 time.sleep(1.4)
-erase(6)
+erase(9)
 time.sleep(0.3)
 key("tab", rest=0.9)  # Needs you
 key("tab", rest=0.9)  # Working
