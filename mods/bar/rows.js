@@ -2,20 +2,27 @@
 // and ordered. No app imports here, so `node --test` can run it.
 
 import { match } from "./fuzzy.js";
+import { filter } from "./query.js";
 
 export const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 export const WORDS = { blocked: "Needs you", done: "Done", working: "Working", idle: "Idle" };
 
-/** The lists the person can switch between, in the order the chips show them. */
+/**
+ * The lists the person can switch between, in the order the chips show them. `group` puts a
+ * thin rule between chips of different groups; `sigil` is the sign that asks for the list
+ * from the search field (see query.js).
+ */
 export const VIEWS = [
-  { id: "all", label: "All" },
-  { id: "blocked", label: "Needs you", status: "blocked" },
-  { id: "working", label: "Working", status: "working" },
-  { id: "done", label: "Done", status: "done" },
-  { id: "idle", label: "Idle", status: "idle" },
-  { id: "tabs", label: "Tabs" },
-  { id: "panes", label: "Panes" },
-  { id: "spaces", label: "Spaces" },
+  { id: "all", label: "All", group: 0 },
+  { id: "agents", label: "Agents", group: 0, sigil: "@" },
+  { id: "blocked", label: "Needs you", status: "blocked", group: 1, sigil: "!" },
+  { id: "working", label: "Working", status: "working", group: 1 },
+  { id: "done", label: "Done", status: "done", group: 1 },
+  { id: "idle", label: "Idle", status: "idle", group: 1 },
+  { id: "tabs", label: "Tabs", group: 2, sigil: "$" },
+  { id: "panes", label: "Panes", group: 2, sigil: "%" },
+  { id: "spaces", label: "Spaces", group: 2, sigil: "#" },
+  { id: "commands", label: "Commands", group: 3, sigil: ">" },
 ];
 
 /** A status as one of Herdr's four words, or null for a program that reports none. */
@@ -71,7 +78,7 @@ export function duration(ms) {
  * `current` (it is where the person is now) and the ids its actions need (`tab`, `pane`,
  * `terminal`).
  */
-export function build({ agents = [], panes = [], spaces = [], terminals = [] } = {}) {
+export function build({ agents = [], panes = [], spaces = [], terminals = [] } = {}, { home = null } = {}) {
   const tabs = new Map();
   const spaceOfTab = new Map();
   for (const s of spaces) {
@@ -116,6 +123,8 @@ export function build({ agents = [], panes = [], spaces = [], terminals = [] } =
       branch: pane?.branch ?? null,
       pinned: Boolean(a.pinned),
       current: Boolean(a.focused),
+      settled: Boolean(tab?.settled),
+      ask: statusOf(a.status) === "blocked" ? question(term?.report) : null,
       created: term?.created_ms ?? null,
       changed: term?.status_ms ?? null,
       subs: 0,
@@ -158,6 +167,8 @@ export function build({ agents = [], panes = [], spaces = [], terminals = [] } =
       branch: null,
       pinned: false,
       current: false,
+      settled: false,
+      ask: status === "blocked" ? question(t.report) : null,
       created: t.created_ms ?? null,
       changed: t.status_ms ?? null,
       subs: 0,
@@ -193,6 +204,7 @@ export function build({ agents = [], panes = [], spaces = [], terminals = [] } =
         branch: l?.branch ?? s.branch ?? null,
         pinned: false,
         current: Boolean(s.active && tab.active),
+        settled: Boolean(tab.settled),
         created: termOf.get(l?.terminal)?.created_ms ?? null,
         changed: null,
         subs: 0,
@@ -221,6 +233,7 @@ export function build({ agents = [], panes = [], spaces = [], terminals = [] } =
       branch: p.branch ?? null,
       pinned: false,
       current: Boolean(p.focused),
+      settled: Boolean(tab?.settled),
       created: termOf.get(p.terminal)?.created_ms ?? null,
       changed: null,
       subs: 0,
@@ -246,12 +259,21 @@ export function build({ agents = [], panes = [], spaces = [], terminals = [] } =
       branch: s.branch ?? null,
       pinned: false,
       current: Boolean(s.active),
+      settled: false,
       created: null,
       changed: null,
       subs: 0,
     });
   }
+  // The folder as it is shown, so a search lights up the letters the person sees.
+  for (const r of rows) r.where = shortPath(r.cwd, r.machine ? null : home);
   return rows;
+}
+
+// What a blocked agent asks, from its status report, if it says.
+function question(report) {
+  const q = report?.msg ?? report?.message ?? report?.question ?? null;
+  return typeof q === "string" && q.trim() ? q.trim().split("\n")[0] : null;
 }
 
 /** How many agents are in each status: { blocked, working, done, idle }. */
@@ -268,6 +290,7 @@ export function counts(rows) {
 export function inView(rows, view, searching = false) {
   const status = VIEWS.find((v) => v.id === view)?.status;
   if (status) return rows.filter((r) => r.kind === "agent" && r.status === status);
+  if (view === "agents") return rows.filter((r) => r.kind === "agent");
   if (view === "tabs") return rows.filter((r) => r.kind === "tab");
   if (view === "panes") return rows.filter((r) => r.kind === "pane");
   if (view === "spaces") return rows.filter((r) => r.kind === "space");
@@ -282,56 +305,67 @@ const ENOUGH = 22;
 const FIELDS = [
   ["title", 1],
   ["detail", 0.8],
+  ["ask", 0.7],
   ["space", 0.7],
   ["branch", 0.6],
   ["programName", 0.6],
   ["machine", 0.5],
-  ["cwd", 0.5],
+  ["where", 0.5],
   ["word", 0.4],
   ["terminal", 0.4],
 ];
 
+/** The fields a row shows, whose matched letters are lit wherever the term landed. */
+export const SHOWN = ["title", "detail", "ask", "space", "branch", "machine", "where"];
+
 /**
- * The rows that match every word of `query`, each as { row, score, positions }: `positions`
- * are the matched characters of the title, for highlighting. A word may match the title, the
- * detail, the space, the branch, the program, the machine, the folder, the status word or the
- * terminal address, as letters in order that mostly sit together or start words. An empty
- * query matches everything with score 0.
+ * The rows that match every word in `terms` (a query string, or the words `parse` gives),
+ * each as { row, score, positions, hits }: `hits` maps each shown field to the matched
+ * characters in it, for highlighting, and `positions` is `hits.title`. A word may match the
+ * title, the detail, what a blocked agent asks, the space, the branch, the program, the
+ * machine, the folder, the status word or the terminal address, as letters in order that
+ * mostly sit together or start words. No words match everything with score 0.
  */
-export function search(rows, query) {
-  const terms = query.trim().split(/\s+/).filter(Boolean);
-  if (!terms.length) return rows.map((row) => ({ row, score: 0, positions: [] }));
+export function search(rows, terms) {
+  const words = typeof terms === "string" ? terms.trim().split(/\s+/).filter(Boolean) : terms ?? [];
+  if (!words.length) return rows.map((row) => ({ row, score: 0, positions: [], hits: {} }));
   const out = [];
   for (const row of rows) {
     const texts = { ...row, programName: row.program?.name, word: WORDS[row.status] };
     let score = 0;
-    const positions = new Set();
+    const lit = {};
     let all = true;
-    for (const term of terms) {
+    for (const term of words) {
+      const enough = term.length * ENOUGH;
       let top = null;
       for (const [field, weight] of FIELDS) {
         const found = match(term, texts[field] ?? "");
-        if (found && found.score >= term.length * ENOUGH && (!top || found.score * weight > top.score)) top = { score: found.score * weight, field, positions: found.positions };
+        if (found && found.score >= enough && (!top || found.score * weight > top.score)) top = { score: found.score * weight };
       }
       if (!top) {
         all = false;
         break;
       }
       score += top.score;
-      // The title lights up wherever the term is in it, even when another field scored higher.
-      const lit = top.field === "title" ? top : match(term, row.title);
-      if (lit && lit.score >= term.length * ENOUGH) for (const p of lit.positions) positions.add(p);
+      // Every shown field lights up where the term is in it, not only the one that scored.
+      for (const field of SHOWN) {
+        const m = texts[field] ? match(term, texts[field]) : null;
+        if (m && m.score >= enough) for (const p of m.positions) (lit[field] ??= new Set()).add(p);
+      }
     }
-    if (all) out.push({ row, score, positions: [...positions].sort((a, b) => a - b) });
+    if (!all) continue;
+    const hits = Object.fromEntries(Object.entries(lit).map(([f, set]) => [f, [...set].sort((a, b) => a - b)]));
+    out.push({ row, score, positions: hits.title ?? [], hits });
   }
   return out;
 }
 
 /**
- * Display order. Without a query: agents that need the person, then finished ones, then pinned
- * ones, then what was visited most recently (`recent`: row keys, latest first), then working
- * before idle, then the newest. With a query, the better match comes first and that order
- * breaks ties.
+ * Display order. Without a query: agents that need the person, then finished ones, then
+ * pinned ones, then what was visited most recently (`recent`: row keys, latest first), then
+ * working before idle, then the newest. Settled tabs, which the person put away, come after
+ * the rest unless they need the person. With a query, the better match comes first and that
+ * order breaks ties.
  */
 export function order(found, recent = []) {
   const seen = new Map(recent.map((key, i) => [key, i]));
@@ -339,6 +373,7 @@ export function order(found, recent = []) {
   const visited = (r) => seen.get(r.key) ?? Infinity;
   const settle = (a, b) =>
     attention(b) - attention(a)
+    || Number(Boolean(a.settled)) - Number(Boolean(b.settled))
     || Number(b.pinned) - Number(a.pinned)
     || (visited(a) === visited(b) ? 0 : visited(a) - visited(b))
     || (RANK[b.status] ?? 0) - (RANK[a.status] ?? 0)
@@ -348,15 +383,74 @@ export function order(found, recent = []) {
 }
 
 /**
- * Where the selection starts: the first row that is not where the person already is, so
- * opening the bar and pressing Enter goes to the previous place, like alt-tab.
+ * Where the selection starts: the first place that is not where the person already is, so
+ * opening the bar and pressing Enter goes to the previous place, like alt-tab. With
+ * `current`, the place the person is in instead.
  */
-export function firstPick(found) {
-  const i = found.findIndex((f) => !f.row.current);
+export function firstPick(found, current = false) {
+  const i = found.findIndex((f) => f.row.kind !== "command" && f.row.kind !== "help" && Boolean(f.row.current) === current);
   return i < 0 ? 0 : i;
 }
 
 /** `recent` with `key` moved to the front, at most `limit` long. */
 export function visit(recent, key, limit = 60) {
   return [key, ...recent.filter((k) => k !== key)].slice(0, limit);
+}
+
+/** The cheat sheet a lone `?` lists: each row puts its sign or filter in the search field. */
+export const HELP = [
+  ["@", "Agents", "Only agents"],
+  ["!", "Needs you", "Agents waiting for you"],
+  ["$", "Tabs", "Every tab"],
+  ["%", "Panes", "Every terminal pane"],
+  ["#", "Spaces", "Every space"],
+  [">", "Commands", "Run a Herdr command, switch theme or layout"],
+  ["is:", "is:working", "By status or kind: needs, working, done, idle, pinned, sub, here, settled, remote, local"],
+  ["on:", "on:studio", "On one machine; on:local for this computer"],
+  ["in:", "in:api", "In one space"],
+  ["app:", "app:codex", "Running one program"],
+  ["-is:", "-is:idle", "A leading minus leaves those out"],
+].map(([insert, title, detail]) => ({
+  key: `h:${insert}`,
+  kind: "help",
+  insert: insert.endsWith(":") ? insert : `${insert} `,
+  sign: insert,
+  title,
+  detail,
+  status: null,
+  program: null,
+  space: "",
+  spaceId: null,
+  machine: null,
+  current: false,
+  pinned: false,
+}));
+
+// How many commands an "All" search shows after the places it found.
+const COMMANDS_IN_ALL = 4;
+
+/**
+ * The list the bar shows, as [{ row, score, positions, hits, group }], from the rows `build`
+ * made, the command rows, the chosen chip, a parsed query (query.js) and the recently visited
+ * keys. `group` is "places", "commands" or "help"; the view draws a heading where it changes.
+ *
+ * A leading sign wins over the chip. "All" with a search adds the best few commands after the
+ * places, unless a filter narrows the places (commands have no status, space or machine).
+ */
+export function compose({ rows = [], commands = [], view = "all", parsed, recent = [], withCommands = true }) {
+  const scope = parsed.scope ?? view;
+  const tag = (group) => (f) => ({ ...f, group });
+  if (scope === "help") return HELP.map((row) => ({ row, score: 0, positions: [], hits: {}, group: "help" }));
+  if (scope === "commands") {
+    const found = search(commands, parsed.terms);
+    // A search orders by match; without one, the app's own order, current theme and layout marked.
+    return (parsed.terms.length ? [...found].sort((a, b) => b.score - a.score) : found).map(tag("commands"));
+  }
+  const searching = parsed.terms.length > 0 || parsed.filters.some((f) => f.valid);
+  const places = order(search(filter(inView(rows, scope, searching), parsed.filters), parsed.terms), recent).map(tag("places"));
+  if (scope !== "all" || !withCommands || !parsed.terms.length || parsed.filters.length) return places;
+  const words = parsed.terms.join("");
+  if (words.length < 2) return places;
+  const extra = [...search(commands, parsed.terms)].sort((a, b) => b.score - a.score).slice(0, COMMANDS_IN_ALL);
+  return [...places, ...extra.map(tag("commands"))];
 }

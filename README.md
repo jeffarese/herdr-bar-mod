@@ -4,13 +4,15 @@
 
 A mod for the [Herdr](https://herdr.dev) desktop app: a quick switcher for your agents, tabs,
 panes and spaces, on this computer and on every connected machine. Press a key, type a few
-letters of a task, a branch, a folder or a machine, and Enter takes you there.
+letters of a task, a branch, a folder or a machine, and Enter takes you there. It runs the
+app's commands too, and does things to a row without going there: peek, rename, pin, settle,
+close.
 
 It is the desktop-app counterpart of [herdr-bar](https://github.com/jeffarese/herdr-bar), the
 Cmd+K command bar for the Herdr TUI. The two share no code: the app has its own extension
 system, and this is written for it.
 
-[![The Herdr window. A key drops a panel from the top that lists nine agents and tabs with their status: one needs you, one is done, four are working. The selection moves down the list and the right side shows each terminal's screen. Typing "studio" leaves the agents on that machine. Tab switches between the Needs you, Working and Done lists. Typing "login" leaves one agent with those letters highlighted, and Enter shows it.](docs/media/demo.gif)](docs/media/demo.mp4)
+[![The Herdr window. A key drops a panel from the top that lists ten agents and tabs, one line each, with their status: one needs you and says what it asks, one is done, four are working. The selection moves down the list and the right side shows each terminal's screen. Command-period opens the actions for a sub-agent. Typing "on:studio" turns into a pill and leaves what runs on that machine. Tab switches between the Needs you, Working and Done lists. Typing "login" leaves one agent with those letters highlighted, and Enter shows it.](docs/media/demo.gif)](docs/media/demo.mp4)
 
 The film is the real mod in the real app, with real key presses, on a
 [synthetic stage](docs/demo/README.md). Click it for the 60 frames a second version.
@@ -19,15 +21,27 @@ This is an unofficial mod. It is not affiliated with Herdr.
 
 ## What it does
 
-- **One row per agent**, not per tab, with its program icon, what it is working on, its space,
-  tab, branch, folder and machine.
+- **One line per agent**, not per tab: its program icon, what it is working on, then its
+  space, tab, machine, branch and folder, and at the right how long it has run and its status.
+  An agent that needs you says what it asks. Two lines a row is a setting away.
 - **Live status.** A turning ring for working, a red "Needs you", a green "Done", a grey ring
   for idle. The list updates while it is open.
-- **Filters.** Chips for All, Needs you, Working, Done, Idle, Tabs, Panes and Spaces, with a
-  live count on each status. Tab and Shift+Tab move between them.
-- **Fuzzy search** over the title, tab, space, branch, program, machine, folder, status and
-  terminal address. Every word must match somewhere, as letters in order that sit together or
-  start words (`ftl` finds "Fix the login"); the matched letters of the title are highlighted.
+- **Lists.** Chips for All, Agents, Needs you, Working, Done, Idle, Tabs, Panes, Spaces and
+  Commands, with a live count on each status. Tab and Shift+Tab move between them, and a sign
+  typed first picks one: `@` agents, `!` needs you, `$` tabs, `%` panes, `#` spaces,
+  `>` commands. Backspace on an empty search goes back to All.
+- **Filters** anywhere in the search: `is:working`, `on:studio`, `in:api`, `app:codex`, and
+  `-is:idle` to leave some out. Each shows as a pill in the search field; its × takes it out.
+  `?` lists them all.
+- **Fuzzy search** over the title, tab, space, branch, program, machine, folder, status, what a
+  blocked agent asks and the terminal address. Every word must match somewhere, as letters in
+  order that sit together or start words (`ftl` finds "Fix the login"). The matched letters are
+  lit wherever the row shows them: the title, the space, the branch, the folder.
+- **Commands.** Every app command that needs no argument, each theme and each layout, with its
+  key. `>` lists them; an All search shows the best few after the places it found.
+- **Actions.** ⌘. (or a right-click) lists what can be done to the row: go, peek without
+  leaving, rename its tab or space in place, pin, zoom, settle the tab, close it. The common
+  ones have keys of their own.
 - **Other machines.** Agents and tabs on machines connected through herdr-core are listed with
   the machine's name, and typing the name finds them.
 - **Preview.** The right side shows the selected terminal's screen, read again every second
@@ -40,6 +54,7 @@ This is an unofficial mod. It is not affiliated with Herdr.
 - **Sub-agents.** Agents started by another agent with `hc run` are listed too. Enter peeks
   at one, since it has no pane.
 - **Tidy up.** Ctrl+D on a row, twice, closes its tab (or pane, or space, or ends a sub-agent).
+  Settled tabs, the ones you put away, sort last and say so.
 
 ## Install
 
@@ -70,23 +85,57 @@ Tested with the Herdr app 0.1.15 and herdr-core 0.1.20.
 
 ## Keys
 
-| Key | Does |
-| --- | --- |
-| Type | Search |
-| ↑ ↓, Ctrl+P Ctrl+N, Ctrl+K Ctrl+J | Move the selection |
-| Page Up, Page Down | Move a screenful |
-| Enter, or a click | Go to the row |
-| Tab, Shift+Tab | Next list, previous list |
-| Ctrl+D, twice | Close the row's tab, pane or space, or end a sub-agent |
-| Esc | Leave |
+| Key (Mac) | Elsewhere | Does |
+| --- | --- | --- |
+| Type | | Search. `?` alone lists the signs and filters |
+| ↑ ↓, ⌃P ⌃N, ⌃K ⌃J | Ctrl+P … | Move the selection |
+| Page Up, Page Down | | Move a screenful |
+| ↵, or a click | | Go to the row, or run the command |
+| ⌘↵ | Ctrl+Enter | Peek at the row's terminal without leaving the tab you are in |
+| ⌘. , → on an empty search, or a right-click | Ctrl+. | Actions for the row; ← goes back |
+| ⌘R | Ctrl+R | Rename the row's tab or space in place. An empty name gives back the automatic one |
+| ⌃D, twice | Ctrl+D | Close the row's tab, pane or space, or end a sub-agent |
+| ⌘O | Ctrl+O | Hide or show the preview |
+| Tab, Shift+Tab | | Next list, previous list |
+| ⌃U | Ctrl+U | Clear the search and go back to the list the bar opened on |
+| Backspace on an empty search | | Back to All |
+| Esc | | Leave |
+
+The bar's own keys avoid the ones Herdr binds for the whole window (⌘1–⌘9, ⌘P, ⌘D, ⌘W and the
+rest): those still reach Herdr while the bar is open.
+
+## Settings
+
+Optional. Write `bar.json` in the app's home (`~/.config/herdr-app/bar.json`):
+
+```json
+{
+  "density": "compact",
+  "scope": "last",
+  "select_current": false,
+  "commands": true
+}
+```
+
+| Key | Default | Means |
+| --- | --- | --- |
+| `density` | `"compact"` | `"compact"`: one line a row. `"comfortable"`: two, with the details on the second |
+| `scope` | `"last"` | The list the bar opens on: `"last"` (the one you left it on), or `all`, `agents`, `blocked`, `working`, `done`, `idle`, `tabs`, `panes`, `spaces`, `commands` |
+| `select_current` | `false` | `true` opens on the row you are in, instead of the one you came from |
+| `commands` | `true` | `false` keeps commands out of All searches; `>` still lists them |
+
+It is read each time the bar opens.
 
 ## What it runs and reads
 
-The mod reads the app's live lists of agents, panes, spaces and terminals. For the preview it
-runs `hc read <terminal>`, which prints that terminal's screen. It makes no network requests
-and reads no files. It keeps two values in the app's shared state: `bar.recent` (the rows you
-visited, latest first) and `bar.view` (the list you last had open). It reads `space.colors`,
-which the shipped mods keep, and never writes it.
+The mod reads the app's live lists of agents, panes, spaces and terminals, its commands, key
+bindings, themes and layouts. For the preview it runs `hc read <terminal>`, which prints that
+terminal's screen. It reads one file, `bar.json` in the app's home, if you wrote one, and makes
+no network requests. It runs app commands only when you ask: going somewhere, a command row,
+an action, a rename or a close. It keeps four values in the app's shared state: `bar.recent`
+(the rows you visited, latest first), `bar.view` (the list you last had open), `bar.preview`
+(false once you hide the preview) and `bar.config` (the last `bar.json` it read). It reads
+`space.colors`, which the shipped mods keep, and never writes it.
 
 ## Development
 
@@ -97,8 +146,9 @@ herdr-app check mods/bar      # loads the mod and renders it once
 sh docs/demo/record.sh        # films the demo again, on a synthetic stage
 ```
 
-`mods/bar/rows.js` and `mods/bar/fuzzy.js` hold the logic and import nothing from the app, so
-they run under Node. `mods/bar/main.js` is the view. [RECIPE.md](RECIPE.md) describes the mod
+`mods/bar/rows.js` (the rows, their order and the list), `query.js` (the search language),
+`commands.js` (command rows and key labels), `actions.js` (the actions menu) and `fuzzy.js`
+hold the logic and import nothing from the app, so they run under Node. `mods/bar/main.js` is the view. [RECIPE.md](RECIPE.md) describes the mod
 in enough detail to build it from scratch.
 
 The icons in `mods/bar` come from [Lucide](https://lucide.dev) (ISC license), some by way of

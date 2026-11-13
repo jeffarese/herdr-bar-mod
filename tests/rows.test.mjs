@@ -233,3 +233,80 @@ test("the machine is the part of an address before the slash", () => {
   assert.equal(machineOf("studio/t7"), "studio");
   assert.equal(machineOf("t7"), null);
 });
+
+// --- Settled tabs, questions, highlighting and the composed list ---
+
+import { compose, HELP } from "../mods/bar/rows.js";
+import { parse } from "../mods/bar/query.js";
+import { commandRows } from "../mods/bar/commands.js";
+
+test("a blocked agent says what it asks, from its status report", () => {
+  const w = world();
+  w.terminals[2].report = { msg: "Run npm test?\nmore" };
+  assert.equal(byKey(build(w), "a:studio/t7").ask, "Run npm test?");
+  assert.equal(byKey(build(w), "a:t1").ask, null);
+});
+
+test("a settled tab and its agents are marked, and sort after the rest unless they need you", () => {
+  const w = world();
+  w.spaces[0].tabs[1].settled = true;
+  w.agents.push({ address: "t3", pane: "p4", space: "s1", space_name: "app", tab: "tb2", status: "idle", program: claude, title: "Old work", pinned: true });
+  const rows = build(w);
+  assert.equal(byKey(rows, "t:tb2").settled, true);
+  assert.equal(byKey(rows, "a:t3").settled, true);
+  const shown = order(search(inView(rows, "agents"), ""), []);
+  assert.equal(keys(shown).at(-1), "a:t3", "a pinned agent in a settled tab still comes last");
+});
+
+test("the folder is shown from ~ on this computer and as is on another", () => {
+  const rows = build(world(), { home: "/Users/me" });
+  assert.equal(byKey(rows, "a:t1").where, "~/app");
+  assert.equal(byKey(rows, "a:studio/t7").where, "/srv/api");
+});
+
+test("search lights the term in every shown field it is in", () => {
+  const rows = build(world(), { home: "/Users/me" });
+  const [f] = search(rows.filter((r) => r.key === "a:t1"), "app");
+  assert.deepEqual(f.hits.space, [0, 1, 2]);
+  assert.deepEqual(f.hits.where, [2, 3, 4]);
+  assert.deepEqual(f.positions, []);
+});
+
+test("the agents view lists every agent and nothing else", () => {
+  const rows = build(world());
+  assert.deepEqual(keys(inView(rows, "agents")).sort(), ["a:studio/t7", "a:t1"]);
+});
+
+const cmds = commandRows({ commands: [
+  { name: "tab.new", args: [], about: "Make a tab." },
+  { name: "app.zoom_in", args: [], about: "Make everything bigger." },
+] });
+
+test("compose: a sign picks the list whatever the chip", () => {
+  const rows = build(world());
+  assert.deepEqual(keys(compose({ rows, commands: cmds, view: "all", parsed: parse("@") })).sort(), ["a:studio/t7", "a:t1"]);
+  assert.deepEqual(keys(compose({ rows, commands: cmds, view: "tabs", parsed: parse(">") })), ["c:tab.new", "c:app.zoom_in"]);
+  assert.equal(compose({ rows, commands: cmds, view: "all", parsed: parse("?") }).length, HELP.length);
+});
+
+test("compose: an All search adds matching commands after the places", () => {
+  const rows = build(world());
+  const found = compose({ rows, commands: cmds, view: "all", parsed: parse("tab") });
+  assert.equal(found.at(-1).row.key, "c:tab.new");
+  assert.equal(found.at(-1).group, "commands");
+  assert.ok(found.slice(0, -1).every((f) => f.group === "places"));
+  assert.ok(compose({ rows, commands: cmds, view: "all", parsed: parse("tab"), withCommands: false }).every((f) => f.group === "places"));
+});
+
+test("compose: filters narrow the places and keep commands out", () => {
+  const rows = build(world());
+  assert.deepEqual(keys(compose({ rows, commands: cmds, view: "all", parsed: parse("on:studio") })), ["a:studio/t7", "s:studio/s2"]);
+  assert.deepEqual(keys(compose({ rows, commands: cmds, view: "agents", parsed: parse("-is:working") })), ["a:studio/t7"]);
+  assert.ok(compose({ rows, commands: cmds, view: "all", parsed: parse("tab on:local") }).every((f) => f.group === "places"));
+});
+
+test("the selection can start on where the person is", () => {
+  const found = order(search(inView(build(world()), "all"), ""), []);
+  assert.equal(found[firstPick(found, true)].row.current, true);
+  assert.equal(found[firstPick(found)].row.current, false);
+});
