@@ -304,6 +304,7 @@ const ENOUGH = 22;
 // What a term may match in a row, and how much a match there counts next to one in the title.
 const FIELDS = [
   ["title", 1],
+  ["keywords", 0.9],
   ["detail", 0.8],
   ["ask", 0.7],
   ["space", 0.7],

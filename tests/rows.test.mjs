@@ -310,3 +310,25 @@ test("the selection can start on where the person is", () => {
   assert.equal(found[firstPick(found, true)].row.current, true);
   assert.equal(found[firstPick(found)].row.current, false);
 });
+
+test("panel commands match queries like prs, hide prs, close prs, show prs, open prs", () => {
+  const layoutTree = {
+    id: "root",
+    type: "row",
+    children: [
+      { id: "main", type: "block", content: { tab: "active" } },
+      { id: "prs", type: "block", hidden: true, content: { mod: "github-prs", props: { block: "prs" } } },
+    ],
+  };
+  const allCmds = commandRows({ layoutTree, modTitles: { "github-prs": "Pull requests" } });
+  for (const q of ["prs", "show prs", "open prs"]) {
+    const found = compose({ rows: build(world()), commands: allCmds, view: "all", parsed: parse(q) });
+    assert.ok(found.some((f) => f.row.key === "c:panel:prs" && f.group === "commands"), `expected panel command for "${q}"`);
+  }
+  layoutTree.children[1].hidden = false;
+  const visibleCmds = commandRows({ layoutTree, modTitles: { "github-prs": "Pull requests" } });
+  for (const q of ["prs", "hide prs", "close prs"]) {
+    const found = compose({ rows: build(world()), commands: visibleCmds, view: "commands", parsed: parse(`> ${q}`) });
+    assert.ok(found.some((f) => f.row.key === "c:panel:prs" && f.row.title === "Hide: Pull requests"), `expected Hide command for "${q}"`);
+  }
+});

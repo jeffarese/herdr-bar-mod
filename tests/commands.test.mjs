@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { commandRows, keyLabel, humanize, gist } from "../mods/bar/commands.js";
+import { commandRows, keyLabel, humanize, gist, modsInLayout } from "../mods/bar/commands.js";
 
 const commands = [
   { name: "tab.new", args: [{ name: "name", required: false }], about: "Make a tab in a space (default: the selected one)." },
@@ -58,4 +58,86 @@ test("names and descriptions are cut to what a row can hold", () => {
   assert.equal(gist("Rename a space (asks the person when no name)."), "Rename a space");
   assert.equal(gist("Make a space: its name."), "Make a space");
   assert.equal(gist("Show the welcome again."), "Show the welcome again");
+});
+
+test("panel rows hide and show docked mods, handle shared sidebars and stacks, and skip chrome", () => {
+  const layoutTree = {
+    id: "root",
+    type: "row",
+    children: [
+      { id: "brand", type: "block", content: { mod: "workspace-chrome" } },
+      { id: "tabs", type: "block", content: { mod: "tabs" } },
+      {
+        id: "work",
+        type: "column",
+        children: [
+          { id: "main", type: "block", content: { tab: "active" } },
+          {
+            id: "panel",
+            type: "column",
+            hidden: true,
+            children: [
+              {
+                id: "panel-body",
+                type: "stack",
+                active: "files",
+                children: [
+                  { id: "files", type: "block", content: { mod: "files" } },
+                  { id: "changes", type: "block", content: { mod: "changes" } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: "sidebar-right",
+        type: "column",
+        children: [
+          { id: "prs", type: "block", content: { mod: "github-prs", props: { block: "prs" } } },
+        ],
+      },
+      { id: "stats-left", type: "block", content: { mod: "herdr-stats", props: { spot: "left" } } },
+      { id: "stats-right", type: "block", content: { mod: "herdr-stats", props: { spot: "right" } } },
+    ],
+    floating: [{ id: "stats-float", content: { mod: "herdr-stats", props: { spot: "float" } } }],
+  };
+  assert.deepEqual(modsInLayout(layoutTree), ["files", "changes", "github-prs", "herdr-stats"]);
+  const rows = commandRows({
+    layoutTree,
+    modTitles: { "github-prs": "Pull requests", "herdr-stats": "System" },
+    keys: [{ section: "global", keys: "cmd-shift-g", action: "layout.toggle:sidebar-right" }],
+  });
+  assert.ok(!rows.some((r) => r.key.includes("brand") || r.key.includes("tabs") || r.key.includes("stats-float")));
+
+  const prs = rows.find((r) => r.key === "c:panel:prs");
+  assert.equal(prs.title, "Hide: Pull requests");
+  assert.equal(prs.keys, "cmd-shift-g");
+  assert.deepEqual(prs.steps, [["layout.hide", { id: "sidebar-right" }]]);
+
+  const files = rows.find((r) => r.key === "c:panel:files");
+  assert.equal(files.title, "Show: Files");
+  assert.deepEqual(files.steps, [["layout.show", { id: "panel" }]]);
+
+  const changes = rows.find((r) => r.key === "c:panel:changes");
+  assert.equal(changes.title, "Show: Changes");
+  assert.deepEqual(changes.steps, [
+    ["layout.show", { id: "panel" }],
+    ["layout.select", { stack: "panel-body", child: "changes" }],
+  ]);
+
+  assert.equal(rows.find((r) => r.key === "c:panel:stats-left").title, "Hide: System (left)");
+  assert.equal(rows.find((r) => r.key === "c:panel:stats-right").title, "Hide: System (right)");
+
+  // Shared sidebar with visible sibling hides only the chosen block; when sibling is hidden, hides both.
+  layoutTree.children[3].children.push({ id: "team", type: "block", content: { mod: "team-agents" } });
+  let sharedRows = commandRows({ layoutTree, modTitles: { "github-prs": "Pull requests" } });
+  assert.deepEqual(sharedRows.find((r) => r.key === "c:panel:prs").steps, [["layout.hide", { id: "prs" }]]);
+
+  layoutTree.children[3].children[1].hidden = true;
+  sharedRows = commandRows({ layoutTree, modTitles: { "github-prs": "Pull requests" } });
+  assert.deepEqual(sharedRows.find((r) => r.key === "c:panel:prs").steps, [
+    ["layout.hide", { id: "prs" }],
+    ["layout.hide", { id: "sidebar-right" }],
+  ]);
 });

@@ -9,12 +9,12 @@
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import {
-  agents, panes, spaces, terminals, commands, keys, themes, layouts, run, hc, home, appHome, theme, settings, props,
+  agents, panes, spaces, terminals, commands, keys, themes, layouts, layout, run, hc, home, appHome, theme, settings, props,
   closeOverlay, shared, setShared, readTextFile, window as appWindow,
 } from "herdr";
 import { VIEWS, WORDS, build, counts, compose, inView, firstPick, visit, duration } from "./rows.js";
 import { parse, without, pill, SIGILS } from "./query.js";
-import { commandRows, keyLabel } from "./commands.js";
+import { commandRows, keyLabel, modsInLayout } from "./commands.js";
 import { actionsFor, run as actionCommand, leaves } from "./actions.js";
 import { segments } from "./fuzzy.js";
 
@@ -30,6 +30,7 @@ const RECENT = "bar.recent"; // shared: row keys, most recently visited first
 const VIEW = "bar.view"; // shared: the view the bar was last left in
 const SHOW_PREVIEW = "bar.preview"; // shared: false once the person hides the preview
 const CONFIG = "bar.config"; // shared: the last bar.json read, so the next open starts with it
+const MOD_TITLES = "bar.modTitles"; // shared: mod name -> mod.json title, for panel commands
 const GROUPS = { places: "Go to", commands: "Commands", help: "Search syntax" };
 
 /**
@@ -53,6 +54,7 @@ export default class Bar extends View {
   init(_props, cx) {
     this.mac = appWindow()?.platform === "macos";
     this.config = { ...DEFAULTS, ...(shared(CONFIG) ?? {}) };
+    this.modTitles = { ...(shared(MOD_TITLES) ?? {}) };
     this.query = "";
     this.view = this.openingView();
     this.opening = this.view; // where Ctrl+U goes back to
@@ -102,6 +104,7 @@ export default class Bar extends View {
     if (here.length) setShared(RECENT, recent);
 
     this.readConfig(cx);
+    this.readModTitles(cx);
     cx.timer.every(PREVIEW_EVERY, (cx) => this.readPreview(cx));
     // Running times tick without any data changing.
     cx.timer.every(15000, (cx) => cx.notify());
@@ -131,6 +134,29 @@ export default class Bar extends View {
       this.config = next;
       setShared(CONFIG, read);
       if (this.view === viewWas && !this.query) this.view = this.opening = this.openingView();
+      cx.notify();
+    });
+  }
+
+  readModTitles(cx) {
+    const names = modsInLayout(layout());
+    if (!names.length) return;
+    cx.spawn(async (cx) => {
+      const next = { ...this.modTitles };
+      let changed = false;
+      for (const name of names) {
+        try {
+          const text = await readTextFile(`${appHome()}/mods/${name}/mod.json`);
+          const title = text ? JSON.parse(text)?.title : null;
+          if (typeof title === "string" && title.trim() && next[name] !== title.trim()) {
+            next[name] = title.trim();
+            changed = true;
+          }
+        } catch {}
+      }
+      if (!changed) return;
+      this.modTitles = next;
+      setShared(MOD_TITLES, next);
       cx.notify();
     });
   }
@@ -211,7 +237,8 @@ export default class Bar extends View {
     if (r.kind === "help") return this.setQuery(r.insert);
     if (r.kind === "command") {
       this.close();
-      run(r.command, r.args);
+      if (r.steps?.length) for (const [cmd, a] of r.steps) run(cmd, a);
+      else run(r.command, r.args);
       return;
     }
     setShared(RECENT, visit(this.recent(), r.key));
@@ -331,7 +358,7 @@ export default class Bar extends View {
     if (r.kind === "space") return tile(this.spaceColor(t, r.spaceId), div().text_size(size * 0.46).font_bold().text_color("#ffffff").child([...r.title][0]?.toUpperCase() ?? "?"));
     if (r.kind === "command") {
       if (r.colors) return this.swatch(r.colors, size, radius);
-      return tile(t.raised, glyph(r.command === "layout.switch" ? "mods/bar/layout.svg" : "mods/bar/command.svg", t.muted));
+      return tile(t.raised, glyph(r.command.startsWith("layout.") ? "mods/bar/layout.svg" : "mods/bar/command.svg", t.muted));
     }
     if (r.kind === "help") return tile(t.raised, div().text_size(size * 0.42).font_semibold().text_color(t.accent).child(r.sign.replace(/:$/, "")));
     if (!p?.icon) return tile(t.raised, glyph("mods/bar/terminal.svg", t.muted));
@@ -585,7 +612,11 @@ export default class Bar extends View {
     if (!r) return frame;
     const note = (text) => v_flex().flex_1().items_center().justify_center().px(20).text_size(12).text_color(t.dim).child(text);
     if (r.kind === "help") return frame.child(this.header(t, { ...r, title: "Searching the bar" })).child(this.cheatSheet(t));
-    if (r.kind === "command") return frame.child(this.header(t, r, { sub: r.command + (Object.keys(r.args).length ? ` ${JSON.stringify(r.args)}` : "") })).child(this.commandCard(t, r));
+    if (r.kind === "command") {
+      const call = (command, args) => command + (Object.keys(args ?? {}).length ? ` ${JSON.stringify(args)}` : "");
+      const sub = r.steps?.length ? r.steps.map(([command, args]) => call(command, args)).join("  ·  ") : call(r.command, r.args);
+      return frame.child(this.header(t, r, { sub })).child(this.commandCard(t, r));
+    }
     const where = [r.space, r.branch, r.where].filter(Boolean).join("  ·  ");
     const right = [
       r.machine ? div().flex_none().text_size(11).text_color(t.accent).child(r.machine) : null,
@@ -739,6 +770,8 @@ export default class Bar extends View {
       layouts: layouts(),
       theme: settings().theme ?? null,
       layout: shared("layout") ?? null,
+      layoutTree: layout() ?? null,
+      modTitles: this.modTitles,
     });
     const found = compose({ rows: all, commands: cmds, view: this.view, parsed, recent: this.recent(), withCommands: this.config.commands !== false });
     const scope = parsed.scope ?? this.view;

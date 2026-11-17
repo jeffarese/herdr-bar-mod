@@ -141,12 +141,149 @@ const commandRow = (key, title, detail, command, args, keys, extra = {}) => ({
   ...extra,
 });
 
+const CHROME_MODS = new Set(["workspace-chrome", "tabs"]);
+const BUILTIN_TITLES = {
+  files: "Files",
+  changes: "Changes",
+  spaces: "Spaces",
+  agents: "Agents",
+  "workspace-status": "Status bar",
+};
+
+const prettyMod = (name) => {
+  const words = String(name).replace(/[-_]+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : String(name);
+};
+
+const holdsTabs = (n) => Boolean(n?.content?.tab) || (n?.children ?? []).some(holdsTabs);
+const stackActiveId = (stack) => stack?.active ?? (stack?.children ?? []).find((c) => c && !c.hidden && c.id != null)?.id;
+
+function isPathHidden(path) {
+  for (let i = 0; i < path.length; i++) {
+    if (path[i]?.hidden === true) return true;
+    if (i >= 1 && path[i - 1]?.type === "stack" && stackActiveId(path[i - 1]) !== path[i]?.id) return true;
+  }
+  return false;
+}
+
+function hideSteps(path) {
+  let targetIdx = path.length - 1;
+  for (let k = targetIdx - 1; k >= 1; k--) {
+    const parent = path[k];
+    if (holdsTabs(parent)) break;
+    if (parent.type === "stack" || (parent.children ?? []).length === 1) {
+      if (parent.id) targetIdx = k;
+    } else {
+      break;
+    }
+  }
+  const steps = [];
+  if (path[targetIdx]?.id) steps.push(["layout.hide", { id: path[targetIdx].id }]);
+  const newlyHidden = new Set([path[targetIdx]]);
+  for (let i = targetIdx - 1; i >= 1; i--) {
+    const anc = path[i];
+    if (holdsTabs(anc)) break;
+    const children = anc.children ?? [];
+    const anyVisible = anc.type === "stack"
+      ? false
+      : children.some((c) => c && !c.hidden && !newlyHidden.has(c));
+    if (!anyVisible) {
+      if (anc.id) steps.push(["layout.hide", { id: anc.id }]);
+      newlyHidden.add(anc);
+    } else {
+      break;
+    }
+  }
+  return steps;
+}
+
+function showSteps(path) {
+  const steps = [];
+  for (let i = 1; i < path.length; i++) {
+    if (path[i]?.hidden === true && path[i]?.id) steps.push(["layout.show", { id: path[i].id }]);
+    if (path[i - 1]?.type === "stack" && path[i - 1]?.id && path[i]?.id) {
+      const active = stackActiveId(path[i - 1]);
+      if (active !== path[i].id) steps.push(["layout.select", { stack: path[i - 1].id, child: path[i].id }]);
+    }
+  }
+  if (!steps.length && path.at(-1)?.id) steps.push(["layout.show", { id: path.at(-1).id }]);
+  return steps;
+}
+
+function collectBlocks(node, path = [], out = []) {
+  if (!node || typeof node !== "object") return out;
+  const here = [...path, node];
+  if (node.type === "block" && typeof node.id === "string" && typeof node.content?.mod === "string" && !CHROME_MODS.has(node.content.mod)) {
+    out.push({ node, path: here });
+  }
+  for (const child of node.children ?? []) collectBlocks(child, here, out);
+  return out;
+}
+
+/** Unique mod names for toggleable block nodes in a layout tree. */
+export function modsInLayout(tree) {
+  const mods = new Set();
+  for (const { node } of collectBlocks(tree)) mods.add(node.content.mod);
+  return [...mods];
+}
+
+function panelKey(keys, ids, mod) {
+  const wanted = new Set([...ids.filter(Boolean).map((id) => `layout.toggle:${id}`), `mod.open:${mod}`]);
+  const idSet = new Set(ids.filter(Boolean));
+  const hit = keys.find((k) => {
+    if (k.section !== "global") return false;
+    if (typeof k.action === "string") return wanted.has(k.action);
+    if (k.action && typeof k.action === "object") {
+      return (k.action.command === "layout.toggle" && idSet.has(k.action.args?.id))
+        || (k.action.command === "mod.open" && k.action.args?.name === mod);
+    }
+    return false;
+  });
+  return hit?.keys ?? "";
+}
+
+function panelRows(tree, keys, modTitles) {
+  const blocks = collectBlocks(tree);
+  if (!blocks.length) return [];
+  const bases = blocks.map(({ node }) => {
+    const mod = node.content.mod;
+    const propTitle = typeof node.content.props?.title === "string" ? node.content.props.title.trim() : "";
+    return propTitle || modTitles?.[mod] || BUILTIN_TITLES[mod] || prettyMod(mod);
+  });
+  const counts = new Map();
+  for (const b of bases) counts.set(b, (counts.get(b) ?? 0) + 1);
+  return blocks.map(({ node, path }, i) => {
+    const mod = node.content.mod;
+    const base = bases[i];
+    const qualifier = node.content.props?.spot ?? node.content.props?.block ?? node.id;
+    const label = counts.get(base) > 1 ? `${base} (${qualifier})` : base;
+    const hidden = isPathHidden(path);
+    const steps = hidden ? showSteps(path) : hideSteps(path);
+    const [command, args] = steps[0] ?? [hidden ? "layout.show" : "layout.hide", { id: node.id }];
+    const shortcut = panelKey(keys, [node.id, args?.id], mod);
+    return commandRow(
+      `c:panel:${node.id}`,
+      hidden ? `Show: ${label}` : `Hide: ${label}`,
+      hidden ? `Hidden panel · ${mod}` : `Panel · ${mod}`,
+      command,
+      args,
+      shortcut,
+      {
+        steps,
+        about: hidden ? `Show the ${label} panel (${mod}) in this layout.` : `Hide the ${label} panel (${mod}) in this layout.`,
+        keywords: hidden ? `show open unhide toggle panel mod ${label} ${mod} ${node.id}` : `hide close toggle panel mod ${label} ${mod} ${node.id}`,
+      },
+    );
+  });
+}
+
 /**
  * Every command the bar can run, as rows of kind "command": { title, detail, command, args,
- * keys }. From `commands()` (those that need no argument), a row per theme (`app.theme`) and
- * per layout (`layout.switch`). `keys` is the raw global binding, for keyLabel.
+ * keys }. From `commands()` (those that need no argument), panel show/hide rows for `layoutTree`,
+ * a row per theme (`app.theme`) and per layout (`layout.switch`). `keys` is the raw global
+ * binding, for keyLabel.
  */
-export function commandRows({ commands = [], keys = [], themes = [], layouts = [], theme = null, layout = null } = {}) {
+export function commandRows({ commands = [], keys = [], themes = [], layouts = [], theme = null, layout = null, layoutTree = null, modTitles = {} } = {}) {
   const rows = [];
   for (const c of commands) {
     if (LEFT_OUT.has(c.name)) continue;
@@ -158,6 +295,7 @@ export function commandRows({ commands = [], keys = [], themes = [], layouts = [
     if (c.args.some((a) => a.required)) continue;
     rows.push(commandRow(`c:${c.name}`, LABELS[c.name] ?? humanize(c.name), gist(c.about), c.name, {}, bound(keys, c.name, {}), { about: c.about }));
   }
+  rows.push(...panelRows(layoutTree, keys, modTitles));
   for (const t of themes) {
     rows.push(commandRow(`c:theme:${t.name}`, `Theme: ${t.name}`, t.light ? "Light theme" : "Dark theme", "app.theme", { name: t.name }, "", { colors: t.colors, current: t.name === theme }));
   }

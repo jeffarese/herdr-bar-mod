@@ -114,7 +114,14 @@ draws the frame. Inside, 14 px padding, 10 px between regions, on `popover`, top
   `terminal.scroll` two (top, bottom), `app.settings` four (all, look, alerts, updates). A
   known command has a name for people ("New tab"); one the app adds later reads "Tab: foo bar".
   The gist is the description up to the first ` (`, `.`, `:` or `;`. The key is the `global`
-  binding whose action is the command, or `command:first argument`. Then a row per theme
+  binding whose action is the command, or `command:first argument`. Then a row per mod block in
+  the shown layout (not `workspace-chrome`, `tabs` or floating ones): "Hide: Pull requests" when
+  it shows, "Show: Pull requests" when it or a column around it is hidden or it is a stack's
+  other child. Its title is the block's `title` prop, else its `mod.json` title, else the mod
+  name; two blocks of one title add their `spot`, `block` or id. Hide hides the block, or the
+  column or stack it is alone in, and any column that leaves empty, never one holding the tabs;
+  Show shows each hidden node on the way down and selects it in its stack. The words "show",
+  "hide", "open", "close", the mod name and the block id find it. Then a row per theme
   (`app.theme {name}`) and per layout (`layout.switch {name}`).
 - **Order.** Without a search: blocked, then done, then settled last, then pinned, then most
   recently visited, then working before idle, then newest. With a search: best match first, the

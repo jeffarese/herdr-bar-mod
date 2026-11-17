@@ -38,7 +38,9 @@ This is an unofficial mod. It is not affiliated with Herdr.
   order that sit together or start words (`ftl` finds "Fix the login"). The matched letters are
   lit wherever the row shows them: the title, the space, the branch, the folder.
 - **Commands.** Every app command that needs no argument, each theme and each layout, with its
-  key. `>` lists them; an All search shows the best few after the places it found.
+  key, and a **Show:** or **Hide:** row for each panel in the layout you're on ("hide prs",
+  "show team"). Hiding the last panel in a sidebar hides the sidebar too. `>` lists them; an All
+  search shows the best few after the places it found.
 - **Actions.** ⌘. (or a right-click) lists what can be done to the row: go, peek without
   leaving, rename its tab or space in place, pin, zoom, settle the tab, close it. The common
   ones have keys of their own.
@@ -129,12 +131,14 @@ It is read each time the bar opens.
 ## What it runs and reads
 
 The mod reads the app's live lists of agents, panes, spaces and terminals, its commands, key
-bindings, themes and layouts. For the preview it runs `hc read <terminal>`, which prints that
-terminal's screen. It reads one file, `bar.json` in the app's home, if you wrote one, and makes
-no network requests. It runs app commands only when you ask: going somewhere, a command row,
-an action, a rename or a close. It keeps four values in the app's shared state: `bar.recent`
-(the rows you visited, latest first), `bar.view` (the list you last had open), `bar.preview`
-(false once you hide the preview) and `bar.config` (the last `bar.json` it read). It reads
+bindings, themes and layouts, and the shown layout's tree (for the panel rows). For the preview
+it runs `hc read <terminal>`, which prints that terminal's screen. It reads `bar.json` in the
+app's home, if you wrote one, and the `mod.json` of each mod docked in the shown layout (for its
+title), and makes no network requests. It runs app commands only when you ask: going somewhere,
+a command row, an action, a rename or a close. It keeps five values in the app's shared state:
+`bar.recent` (the rows you visited, latest first), `bar.view` (the list you last had open),
+`bar.preview` (false once you hide the preview), `bar.config` (the last `bar.json` it read) and
+`bar.modTitles` (the panel titles it read). It reads
 `space.colors`, which the shipped mods keep, and never writes it.
 
 ## Development
