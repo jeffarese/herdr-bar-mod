@@ -12,10 +12,12 @@ It is the desktop-app counterpart of [herdr-bar](https://github.com/jeffarese/he
 Cmd+K command bar for the Herdr TUI. The two share no code: the app has its own extension
 system, and this is written for it.
 
-[![The Herdr window. A key drops a panel from the top that lists ten agents and tabs, one line each, with their status: one needs you and says what it asks, one is done, four are working. The selection moves down the list and the right side shows each terminal's screen. Command-period opens the actions for a sub-agent. Typing "on:studio" turns into a pill and leaves what runs on that machine. Tab switches between the Needs you, Working and Done lists. Typing "login" leaves one agent with those letters highlighted, and Enter shows it.](docs/media/demo.gif)](docs/media/demo.mp4)
+[![The Herdr window with agents on a laptop and on a Mac Studio called studio. Command-K drops a panel from the top that lists every agent, tab and shell on both machines, one line each, with its space, machine, branch and status: one needs you and says what it asks, one is done, four are working. On the right, the selected agent's screen, with its question above it. The selection moves down the list and the screen follows it, to "review", a Codex sub-agent the webhook agent in api started; Command-period lists what can be done to it: peek, give it a tab, end it. Typing "on:studio" turns into a pill and leaves what runs on studio: two agents and their space. "is:working" leaves what is at work: four agents and studio's space. Typing "flaky" leaves one agent, "Fix the flaky checkout test", with those letters lit, and Enter goes to its tab, where Codex says what it changed. Behind the panel: the Sessions sidebar on the left, Claude Code at work under a pane header, pull requests, stats and what's running on the right, and two notifications in the corner; the "Finished" one leaves partway through. The sessions are made up.](docs/media/demo.gif)](docs/media/demo.mp4)
 
-The film is the real mod in the real app, with real key presses, on a
-[synthetic stage](docs/demo/README.md). Click it for the 60 frames a second version.
+*Around it: the [Sessions sidebar](https://github.com/jeffarese/herdr-agents-sidebar) on the left, a pane header with the model and limits, [pull requests](https://github.com/jeffarese/herdr-prs) and [stats](https://github.com/jeffarese/herdr-stats-mod) on the right with what's running, and two notifications in the corner. Every session in it is made up.*
+
+The film is the real mod in the real app, with real key presses, on the
+[showcase stage](docs/demo/README.md). Click it for the 60 frames a second version.
 
 This is an unofficial mod. It is not affiliated with Herdr.
 
@@ -144,10 +146,10 @@ a command row, an action, a rename or a close. It keeps five values in the app's
 ## Development
 
 ```sh
-npm test                      # the row and search logic, with node --test
-herdr-app check mods/bar      # loads the mod and renders it once
-./install.sh                  # copies it into the running app, which reloads it
-sh docs/demo/record.sh        # films the demo again, on a synthetic stage
+npm test                        # the row and search logic, with node --test
+herdr-app check mods/bar        # loads the mod and renders it once
+./install.sh                    # copies it into the running app, which reloads it
+sh docs/demo/showcase-shots.sh  # films the demo again, on the showcase stage
 ```
 
 `mods/bar/rows.js` (the rows, their order and the list), `query.js` (the search language),
@@ -157,6 +159,16 @@ in enough detail to build it from scratch.
 
 The icons in `mods/bar` come from [Lucide](https://lucide.dev) (ISC license), some by way of
 the Herdr app's shipped mods.
+
+## Works well with
+
+The pictures above are one Herdr window with these mods running together:
+
+- [Sessions sidebar](https://github.com/jeffarese/herdr-agents-sidebar): every agent and shell on all your machines in one sidebar, with sub-agents and background work.
+- [Pull requests](https://github.com/jeffarese/herdr-prs): your pull requests and the state of their checks, in a sidebar.
+- [Stats](https://github.com/jeffarese/herdr-stats-mod): CPU, memory, GPU, network and temperatures beside your terminals, and which agent is using them.
+- [Mod hub](https://github.com/jeffarese/herdr-mod-hub): browse the gallery, read a mod's code before installing it, and manage your mods.
+- [Outside](https://github.com/jeffarese/herdr-outside): the agents and terminals herdr-core runs outside your spaces.
 
 ## License
 
