@@ -2,7 +2,7 @@
 # The showcase hook for this README: run by the kit's scene.sh
 # (~/workspace/herdr/herdr-showcase) after the default scene, with the stage folder.
 #
-#   w=$(SHOWCASE_TFVPN=0 SHOWCASE_HOOK=$PWD/docs/demo/showcase.sh sh ~/workspace/herdr/herdr-showcase/stage.sh)
+#   w=$(SHOWCASE_VPN=0 SHOWCASE_HOOK=$PWD/docs/demo/showcase.sh sh ~/workspace/herdr/herdr-showcase/stage.sh)
 #
 # The film starts from the default scene with nothing over it: shop's first tab (Claude Code,
 # "Speed up the checkout page") in front and two notifications in the corner. film.sh opens

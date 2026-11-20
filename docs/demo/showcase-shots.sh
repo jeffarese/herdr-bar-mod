@@ -18,7 +18,7 @@ kit=${SHOWCASE_KIT:-$HOME/workspace/herdr/herdr-showcase}
 if [ -n "${1:-}" ]; then
   w=$(cd "$1" && pwd -P)
 else
-  w=$(SHOWCASE_TFVPN=0 SHOWCASE_HOOK="$here/showcase.sh" sh "$kit/stage.sh")
+  w=$(SHOWCASE_VPN=0 SHOWCASE_HOOK="$here/showcase.sh" sh "$kit/stage.sh")
   trap 'sh "$kit/stage.sh" --down "$w"' EXIT
 fi
 sh "$here/film.sh" "$w"

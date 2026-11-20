@@ -15,7 +15,7 @@ stats, and the key presses.
 states), the projects, `studio` (a second herdr-core on the same Mac), the pull requests, the
 servers and scheduled jobs. The kit's README says where each comes from.
 
-The stage is built without the VPN switch (`SHOWCASE_TFVPN=0`), as every public README's is.
+The stage is built without the VPN switch (`SHOWCASE_VPN=0`), as every public README's is.
 
 ## Film it again
 
@@ -54,7 +54,7 @@ The film can't be a burst of the kit's `shoot.sh`: a burst can't press keys betw
 By hand, to try a change on a stage you keep:
 
 ```sh
-w=$(SHOWCASE_TFVPN=0 SHOWCASE_HOOK=$PWD/docs/demo/showcase.sh sh ~/workspace/herdr/herdr-showcase/stage.sh)
+w=$(SHOWCASE_VPN=0 SHOWCASE_HOOK=$PWD/docs/demo/showcase.sh sh ~/workspace/herdr/herdr-showcase/stage.sh)
 KEEP_FRAMES=1 sh docs/demo/film.sh "$w"        # the frames stay in $w/film
 sh ~/workspace/herdr/herdr-showcase/stage.sh --down "$w"
 ```
