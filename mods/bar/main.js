@@ -6,6 +6,7 @@
 // the actions live in rows.js, query.js, commands.js, actions.js and fuzzy.js, which have no
 // app imports and are tested with `node --test`.
 
+import { currentSidebar, sidebarButton } from "./sidebar-rail.js";
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import {
@@ -93,9 +94,10 @@ export default class Bar extends View {
       this.commitRename(cx);
       cx.notify();
     });
-    this.input.focus();
-    // The popup takes the keyboard a moment after it opens.
-    cx.timer.after(300, () => (this.mode ? this.edit : this.input).focus());
+    if (!currentSidebar("bar")) {
+      this.input.focus();
+      cx.timer.after(300, () => (this.mode ? this.edit : this.input).focus());
+    }
 
     // Where the person is when the bar opens counts as visited, so it sorts as most recent.
     const here = build(this.model()).filter((r) => r.current && (r.kind === "agent" || r.kind === "tab"));
@@ -759,6 +761,20 @@ export default class Bar extends View {
 
   render(cx) {
     const t = theme();
+    const width = this.width || currentSidebar("bar")?.node.size?.px || Infinity;
+    const resized = (size, cx) => {
+      const next = size.width / (settings().zoom ?? 1);
+      if (this.width !== next) { this.width = next; cx.notify(); }
+    };
+    const fold = sidebarButton("bar", width);
+    if (width < 160 && !props()?.overlay) {
+      return v_flex().id("bar-rail").size_full().items_center().pt(4).gap(6).bg(t.chrome).on_size_change(resized)
+        .when(fold, el => el.child(fold))
+        .child(div().id("open-bar").size(28).flex_none().flex().items_center().justify_center().rounded(5)
+          .role("button").accessibility_label("Open Bar").tooltip("Open Bar").cursor_pointer()
+          .text_color(t.muted).hover(s => s.bg(t.hover).text_color(t.foreground))
+          .on_click(() => run("mod.open", { name: "bar" })).child(svg("mods/bar/search.svg").size(16)));
+    }
     const now = Date.now();
     const rowH = this.rowHeight();
     const all = build(this.model(), { home: home() });
@@ -856,10 +872,7 @@ export default class Bar extends View {
       .gap(10)
       .bg(t.popover)
       .text_size(13)
-      .on_size_change((size, cx) => {
-        this.width = size.width / (settings().zoom ?? 1);
-        cx.notify();
-      })
+      .on_size_change(resized)
       .on_key_down((e, cx) => {
         const k = e.key;
         const m = e.modifiers;
@@ -895,7 +908,7 @@ export default class Bar extends View {
         cx.stop_propagation();
         cx.notify();
       })
-      .child(this.searchField(t, parsed, listed, pool))
+      .child(this.searchField(t, parsed, listed, pool).when(fold, el => el.child(fold)))
       .child(this.chips(t, counts(all), scope))
       .child(h_flex().flex_none().gap(12).items_start().child(this.menu && !wide && sel ? this.menuPane(t, sel, BODY) : listBox).when(wide, (el) => el.child(side)))
       .child(this.hints(t, sel));
